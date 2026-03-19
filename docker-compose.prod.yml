@@ -1,0 +1,25 @@
+services:
+  enigma:
+    image: ghcr.io/thekoopa321/enigma:latest
+    container_name: enigma
+    restart: unless-stopped
+    ports:
+      - "8008:8000"
+    environment:
+      - DATA_DIR=/data
+      - AUTH_SERVICE_URL=http://global-service:8000
+      - AUTH_PUBLIC_URL=https://global.gagnonbourgault.com
+      - ENV=production
+      - OAUTH_CLIENT_ID=enigma
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
+      - OAUTH_REDIRECT_URI=https://enigma.gagnonbourgault.com/auth/callback
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    networks:
+      - global-network
+
+networks:
+  global-network:
+    external: true

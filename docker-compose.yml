@@ -1,0 +1,12 @@
+services:
+  enigma:
+    build: ./app/backend
+    container_name: enigma
+    ports:
+      - "8008:8000"
+    environment:
+      - DATA_DIR=/data
+      - ENV=dev
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
