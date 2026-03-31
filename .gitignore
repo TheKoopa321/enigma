@@ -39,4 +39,3 @@ docker-compose.override.yml
 
 # Claude Code
 .claude/
-claude-*.md
