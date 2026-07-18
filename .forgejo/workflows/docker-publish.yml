@@ -47,7 +47,8 @@ jobs:
           SHORT_SHA="$(printf '%s' "$SHA" | cut -c1-7)"
           IMAGE="${REGISTRY}/${IMAGE_NAME}"
           export DOCKER_BUILDKIT=1
-          docker build --network=host -t "${IMAGE}:latest" -t "${IMAGE}:${SHORT_SHA}" ./app/backend
+          docker pull "${IMAGE}:latest" || true
+          docker build --network=host --cache-from "${IMAGE}:latest" -t "${IMAGE}:latest" -t "${IMAGE}:${SHORT_SHA}" ./app/backend
           docker push "${IMAGE}:latest"
           docker push "${IMAGE}:${SHORT_SHA}"
       - name: Verify pull
