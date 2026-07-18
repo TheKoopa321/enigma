@@ -1,0 +1,70 @@
+# Forgejo Packages — enigma (P223 vague 2)
+name: Build and Push Docker Image
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+env:
+  REGISTRY: git.gagnonbourgault.com
+  IMAGE_NAME: ogb-capital/enigma
+jobs:
+  build-and-push:
+    runs-on: docker-cli
+    defaults:
+      run:
+        shell: sh
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          apk add --no-cache git
+          git init
+          git remote add origin "https://oauth2:${GH_TOKEN}@${{ env.REGISTRY }}/${{ github.repository }}.git"
+          git fetch --depth 1 origin "${{ github.sha }}"
+          git checkout --force FETCH_HEAD
+      - name: Log in to Forgejo Container Registry
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -eux
+          USER="${REGISTRY_USER:-olivier}"
+          if [ -z "${REGISTRY_TOKEN:-}" ]; then echo "REGISTRY_TOKEN missing" >&2; exit 1; fi
+          echo "$REGISTRY_TOKEN" | docker login "$REGISTRY" -u "$USER" --password-stdin
+      - name: Build and push
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eux
+          SHORT_SHA="$(printf '%s' "$SHA" | cut -c1-7)"
+          IMAGE="${REGISTRY}/${IMAGE_NAME}"
+          export DOCKER_BUILDKIT=1
+          docker build --network=host -t "${IMAGE}:latest" -t "${IMAGE}:${SHORT_SHA}" ./app/backend
+          docker push "${IMAGE}:latest"
+          docker push "${IMAGE}:${SHORT_SHA}"
+      - name: Verify pull
+        env:
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eux
+          SHORT_SHA="$(printf '%s' "$SHA" | cut -c1-7)"
+          docker pull "${REGISTRY}/${IMAGE_NAME}:${SHORT_SHA}"
+      - name: Trigger Watchtower update
+        continue-on-error: true
+        env:
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+        run: |
+          set -eux
+          [ -n "${INTERNAL_API_KEY:-}" ] || exit 0
+          wget -qO- --header="X-Internal-Key: ${INTERNAL_API_KEY}" --post-data='' \
+            https://global.gagnonbourgault.com/api/webhook/watchtower || true
